@@ -12,6 +12,7 @@ contract ChildTrust {
 
     uint amount;
 
+
     address payable child; 
     
     address father;
