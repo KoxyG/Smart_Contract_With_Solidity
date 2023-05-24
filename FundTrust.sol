@@ -1,38 +1,67 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.10;
+pragma solidity ^0.8.3;
+
+
+
+//A fundTrust smart contract for a child
+//only the child should be capable of invoking the withdrawal function
+//only the father should have the ability to deposit funds
+//the child would not be able to withdraw until 18years
+//constructor should set the amount, child address, and birthday.
+
 
 contract FundTrust {
     uint public amount;
     address payable public child;
     address public father;
-    uint public dueBlock;
+    uint public childBirthday;
+    uint public dueTimeStamp;
 
-    // Breakdown of the 18 years time space
-    uint256 constant private BLOCKS_PER_DAY = 5760;
-    uint256 constant private BLOCKS_PER_YEAR = 365 * BLOCKS_PER_DAY;
-    uint256 constant private DURATION_18YEARS = 18 * BLOCKS_PER_YEAR;
 
-    constructor(address payable _child) {
-        child = _child;
-        father = msg.sender; // Set the contract deployer as the father
-    }
+    uint256 constant private SECONDS_PER_DAY = 86400;
+    uint256 constant private SECOND_PER_YEAR = 365 * SECONDS_PER_DAY;
+    uint256 constant private DURATION_18YEARS = 18 * SECOND_PER_YEAR;
 
-    function deposit() external payable {
+
+    modifier onlyFather() {
         require(msg.sender == father, "Only the father can access this function.");
-        amount += msg.value;
-        dueBlock = block.number + DURATION_18YEARS;
+        _;
     }
 
-    function withdraw() external {
+    modifier onlyChild() {
         require(msg.sender == child, "Only the child can access this function.");
-        require(block.number >= dueBlock, "Funds are locked until the child reaches 18 years.");
+        _;
+    }
 
-        uint amountToTransfer = amount; // Store the amount to transfer
-        amount = 0;
-        dueBlock = 0;
+    modifier fundUnlocked() {
+        require(block.timestamp >= dueTimeStamp, "Funds are unlocked until the child reaches 18years");
+        _;
+    }
 
-        child.transfer(amountToTransfer);
+    
+    constructor(uint _amount, address payable _child, uint _childBirthday) {
+        //child's birthday should be provided in Unix timestamp
+        require(_childBirthday > block.timestamp, "Invalid child birthday");
+        
 
+        amount = _amount;
+        child = _child;
+        childBirthday = _childBirthday;
+        father = msg.sender;
+
+        //calculae the dueTimeStamp based on the child's provided birthday
+        dueTimeStamp = childBirthday + DURATION_18YEARS;
+
+    }
+
+    function deposit() external payable onlyFather {
+        amount += msg.value;
+
+    }
+
+    function withdraw() external  onlyChild fundUnlocked {
+        child.transfer(amount);
     }
 }
+
 
