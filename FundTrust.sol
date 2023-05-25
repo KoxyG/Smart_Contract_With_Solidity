@@ -14,11 +14,11 @@ contract FundTrust {
     uint public amount;
     address payable public child;
     address public father;
-    uint public childBirthday;
-    uint public dueTimeStamp;
+    uint256 public childBirthday;
+    uint256 public childCurrentAge;
+    uint256 public dueDate;
 
-
-    uint256 constant private SECONDS_PER_DAY = 86400;
+    uint256 constant private SECONDS_PER_DAY = 24 * 60 * 60;
     uint256 constant private SECOND_PER_YEAR = 365 * SECONDS_PER_DAY;
     uint256 constant private DURATION_18YEARS = 18 * SECOND_PER_YEAR;
 
@@ -34,33 +34,35 @@ contract FundTrust {
     }
 
     modifier fundUnlocked() {
-        require(block.timestamp >= dueTimeStamp, "Funds are unlocked until the child reaches 18years");
+        require(childCurrentAge >= DURATION_18YEARS, "Funds are unlocked until the child reaches 18years");
         _;
     }
 
     
-    constructor(uint _amount, address payable _child, uint _childBirthday) {
-        //child's birthday should be provided in Unix timestamp
-        require(_childBirthday > block.timestamp, "Invalid child birthday");
+    constructor(address payable _child, uint _childBirthday) payable {
+        //child's birthday should be provided in seconds 
+        require(_childBirthday < block.timestamp, "Invalid child birthday");
+        require(msg.value > 0, "Zero ETH not allowed");
         
-
-        amount = _amount;
         child = _child;
-        childBirthday = _childBirthday;
+        amount = msg.value;
         father = msg.sender;
 
-        //calculae the dueTimeStamp based on the child's provided birthday
-        dueTimeStamp = childBirthday + DURATION_18YEARS;
-
+        //calculate the child's current age by subtracting from the current time
+        childCurrentAge = block.timestamp - _childBirthday;
+        childBirthday = _childBirthday;
     }
 
     function deposit() external payable onlyFather {
+        require(msg.value > 0, "Zero ETH not allowed");
         amount += msg.value;
-
     }
 
-    function withdraw() external  onlyChild fundUnlocked {
-        child.transfer(amount);
+    function withdraw() external payable onlyChild fundUnlocked {
+        uint256 amountToSend = amount;
+        amount = 0;
+
+        child.transfer(amountToSend);
     }
 }
 
